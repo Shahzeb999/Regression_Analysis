@@ -11,8 +11,10 @@ A comprehensive, interactive web application for regression analysis built with 
 ### 📚 Educational Content
 - **Beginner's Guide**: Plain English explanations with real-world analogies
 - **Interactive Tutorials**: Step-by-step learning path from basics to advanced
-- **Visual Demonstrations**: 12+ interactive Plotly visualizations
+- **Visual Demonstrations**: 25+ interactive Plotly visualizations (ENHANCED!)
 - **Comprehensive Reference**: Detailed documentation of all regression methods
+- **Mathematical Formulas**: Complete formula reference with derivations (NEW!)
+- **Step-by-Step Tutorial**: Guided workflow from raw data to final model (NEW!)
 
 ### 🔬 Regression Methods
 - **Linear Regression**: Simple and multiple linear regression
@@ -35,18 +37,41 @@ A comprehensive, interactive web application for regression analysis built with 
 - **Diagnostic Plots**: Residual plots, Q-Q plots, prediction plots
 - **Coefficient Analysis**: Understand feature importance
 
-### ✅ Assumption Testing
+### ✅ Assumption Testing & Advanced Diagnostics
 - **Linearity**: Residual vs fitted plots
 - **Normality**: Q-Q plots, Shapiro-Wilk test
 - **Homoscedasticity**: Residual variance analysis
 - **Multicollinearity**: VIF (Variance Inflation Factor) calculation
 - **Autocorrelation**: Durbin-Watson test
+- **Influential Points**: Cook's Distance, Leverage, DFBETAS (NEW!)
+- **Outlier Detection**: Standardized residuals with automatic flagging (NEW!)
+
+### 📈 Correlation Analysis (NEW!)
+- **Interactive Correlation Demo**: Adjust strength and visualize
+- **Pearson, Spearman, Kendall**: Multiple correlation methods
+- **Correlation Matrix**: Heatmap visualization
+- **Pairwise Analysis**: Detailed two-variable correlation
+- **Significance Testing**: P-values and interpretation
+
+### 🎯 Statistical Inference (NEW!)
+- **Hypothesis Testing**: For regression coefficients
+- **Confidence Intervals**: Interactive CI calculator
+- **F-Test**: Overall model significance
+- **T-Test**: Individual coefficient significance
+- **Prediction Intervals**: With confidence bands
 
 ### 🔬 Model Comparison
 - **Multiple Models**: Save and compare different models
 - **Performance Comparison**: Side-by-side metrics
 - **Visual Comparison**: Interactive charts
 - **Best Model Selection**: Automatic identification
+- **AIC/BIC Metrics**: Information criteria for model selection (ENHANCED!)
+
+### 📁 Sample Datasets (NEW!)
+- **House Prices**: 100 observations, multiple predictors
+- **Student Performance**: 150 observations, educational data
+- **Sales Prediction**: 120 observations, marketing analytics
+- **Employee Salary**: 80 observations, HR analytics
 
 ## 🚀 Quick Start
 
@@ -99,7 +124,7 @@ Double-click the provided batch files:
 5. Compare models in **🔬 Model Comparison**
 6. Select best model based on metrics
 
-## 📊 Sections Overview
+## 📊 Sections Overview (15+ Sections!)
 
 ### 🏠 Home
 - Overview of features and capabilities
@@ -118,6 +143,13 @@ Double-click the provided batch files:
 - Understanding coefficients and R²
 - Polynomial regression demo
 
+### 📈 Correlation Analysis (NEW!)
+- Interactive correlation demonstrations
+- Multiple correlation methods (Pearson, Spearman, Kendall)
+- Correlation matrix heatmap
+- Pairwise correlation analysis
+- Significance testing
+
 ### ⚠️ Common Pitfalls
 - Overfitting demonstrations
 - Multicollinearity explained
@@ -131,20 +163,48 @@ Double-click the provided batch files:
 - When to use each method
 - Code examples for each technique
 
-### 📈 Model Evaluation
+### 📉 Model Evaluation
 - All regression metrics explained
 - Interactive metrics calculator
 - Diagnostic plot interpretations
 - Logistic regression metrics
 
-### 🔍 Advanced Concepts
-- Assumption testing procedures
+### 🔍 Advanced Diagnostics (ENHANCED!)
+- Comprehensive assumption testing
 - VIF calculation and interpretation
 - Durbin-Watson test
-- P-values and confidence intervals
-- Advanced techniques overview
+- Residual analysis
+- Advanced techniques
 
-### 🎯 Model Builder
+### 🎯 Statistical Inference (NEW!)
+- Hypothesis testing for coefficients
+- Confidence interval calculator
+- F-test for overall significance
+- T-test interpretation
+- Statistical vs practical significance
+
+### 🔬 Influential Points (NEW!)
+- Cook's Distance calculation
+- Leverage detection
+- Standardized residuals
+- DFBETAS and DFFITS
+- Decision framework for outliers
+
+### 📐 Mathematical Formulas (NEW!)
+- Complete formula reference
+- Simple & multiple regression equations
+- Inference formulas
+- Diagnostic metrics
+- Step-by-step derivations
+
+### 🎓 Step-by-Step Tutorial (NEW!)
+- Guided 8-phase workflow
+- From data loading to final model
+- Interactive checklists
+- Common mistakes at each step
+- Best practices
+
+### 💻 Model Builder
 - Upload and preview data
 - Data cleaning tools
 - Variable selection
@@ -152,11 +212,18 @@ Double-click the provided batch files:
 - Results and diagnostics
 - Save models for comparison
 
-### 🔬 Model Comparison
+### 📊 Model Comparison
 - Compare saved models
 - Performance metrics table
 - Visual comparisons
 - Best model identification
+- AIC/BIC criteria
+
+### 📁 Sample Datasets (NEW!)
+- 4 pre-loaded datasets
+- House Prices, Student Performance
+- Sales Prediction, Employee Salary
+- Ready-to-use for learning
 
 ## 🎯 Use Cases
 

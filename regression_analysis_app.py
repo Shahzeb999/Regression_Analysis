@@ -13,6 +13,8 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson
 import warnings
 warnings.filterwarnings('ignore')
+# Suppress specific Plotly deprecation warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='plotly')
 
 # Page configuration
 st.set_page_config(
@@ -247,18 +249,172 @@ def create_assumption_summary_plot(assumptions):
     fig.update_yaxis(range=[0, 1.2], tickvals=[0, 1], ticktext=['Fail', 'Pass'])
     return fig
 
+def create_correlation_scatter(x, y, title, x_label, y_label):
+    """Create scatter plot with correlation"""
+    corr = np.corrcoef(x, y)[0, 1]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=y, mode='markers',
+                            marker=dict(size=8, color='#667eea', opacity=0.6)))
+    fig.update_layout(title=f"{title}<br>Correlation: {corr:.3f}",
+                     xaxis_title=x_label, yaxis_title=y_label,
+                     template='plotly_white', height=400)
+    return fig
+
+def create_cooks_distance_plot(cooks_d, threshold=1.0):
+    """Create Cook's distance plot"""
+    fig = go.Figure()
+    colors = ['red' if d > threshold else '#667eea' for d in cooks_d]
+    fig.add_trace(go.Bar(x=list(range(len(cooks_d))), y=cooks_d,
+                        marker_color=colors))
+    fig.add_hline(y=threshold, line_dash="dash", line_color="red",
+                 annotation_text=f"Threshold ({threshold})")
+    fig.update_layout(title="Cook's Distance - Influential Points",
+                     xaxis_title="Observation Index", yaxis_title="Cook's Distance",
+                     template='plotly_white', height=400)
+    return fig
+
+def create_leverage_plot(leverage, threshold=None):
+    """Create leverage plot"""
+    if threshold is None:
+        threshold = 2 * 2 / len(leverage)  # 2p/n rule of thumb
+    fig = go.Figure()
+    colors = ['red' if l > threshold else '#667eea' for l in leverage]
+    fig.add_trace(go.Scatter(x=list(range(len(leverage))), y=leverage,
+                            mode='markers', marker=dict(size=8, color=colors)))
+    fig.add_hline(y=threshold, line_dash="dash", line_color="red",
+                 annotation_text=f"Threshold ({threshold:.4f})")
+    fig.update_layout(title="Leverage Plot - High Leverage Points",
+                     xaxis_title="Observation Index", yaxis_title="Leverage",
+                     template='plotly_white', height=400)
+    return fig
+
+def create_prediction_interval_plot(x, y, y_pred, lower, upper):
+    """Create plot with prediction intervals"""
+    indices = np.argsort(x.flatten())
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x.flatten()[indices], y=y[indices], mode='markers',
+                            name='Actual Data', marker=dict(size=8, color='#667eea')))
+    fig.add_trace(go.Scatter(x=x.flatten()[indices], y=y_pred[indices], mode='lines',
+                            name='Prediction', line=dict(color='red', width=2)))
+    fig.add_trace(go.Scatter(x=x.flatten()[indices], y=upper[indices], mode='lines',
+                            name='Upper 95% CI', line=dict(color='lightcoral', dash='dash')))
+    fig.add_trace(go.Scatter(x=x.flatten()[indices], y=lower[indices], mode='lines',
+                            name='Lower 95% CI', line=dict(color='lightcoral', dash='dash')))
+    fig.update_layout(title="Predictions with 95% Confidence Intervals",
+                     xaxis_title="X", yaxis_title="Y",
+                     template='plotly_white', height=400)
+    return fig
+
+def create_scatter_matrix(data, columns):
+    """Create scatter matrix for multiple variables"""
+    fig = px.scatter_matrix(data[columns], dimensions=columns,
+                            color_discrete_sequence=['#667eea'])
+    fig.update_layout(title="Scatter Matrix", height=600, template='plotly_white')
+    return fig
+
+def calculate_cooks_distance(model, X, y):
+    """Calculate Cook's distance"""
+    from statsmodels.stats.outliers_influence import OLSInfluence
+    import statsmodels.api as sm
+    
+    X_with_const = sm.add_constant(X)
+    ols_model = sm.OLS(y, X_with_const).fit()
+    influence = OLSInfluence(ols_model)
+    cooks_d = influence.cooks_distance[0]
+    return cooks_d
+
+def generate_sample_datasets():
+    """Generate various sample datasets"""
+    np.random.seed(42)
+    
+    datasets = {}
+    
+    # 1. House Prices
+    n = 100
+    datasets['House Prices'] = pd.DataFrame({
+        'Size_SqFt': np.random.uniform(1000, 3500, n),
+        'Bedrooms': np.random.randint(1, 6, n),
+        'Age_Years': np.random.uniform(0, 50, n),
+        'Distance_to_City': np.random.uniform(1, 30, n),
+        'Price': np.zeros(n)
+    })
+    datasets['House Prices']['Price'] = (
+        200 * datasets['House Prices']['Size_SqFt'] +
+        15000 * datasets['House Prices']['Bedrooms'] -
+        2000 * datasets['House Prices']['Age_Years'] -
+        1000 * datasets['House Prices']['Distance_to_City'] +
+        np.random.normal(0, 30000, n)
+    )
+    
+    # 2. Student Performance
+    n = 150
+    datasets['Student Performance'] = pd.DataFrame({
+        'Study_Hours': np.random.uniform(0, 10, n),
+        'Sleep_Hours': np.random.uniform(4, 10, n),
+        'Previous_Score': np.random.uniform(40, 95, n),
+        'Attendance_Pct': np.random.uniform(50, 100, n),
+        'Test_Score': np.zeros(n)
+    })
+    datasets['Student Performance']['Test_Score'] = (
+        5 * datasets['Student Performance']['Study_Hours'] +
+        2 * datasets['Student Performance']['Sleep_Hours'] +
+        0.3 * datasets['Student Performance']['Previous_Score'] +
+        0.2 * datasets['Student Performance']['Attendance_Pct'] +
+        np.random.normal(0, 5, n)
+    )
+    datasets['Student Performance']['Test_Score'] = datasets['Student Performance']['Test_Score'].clip(0, 100)
+    
+    # 3. Sales Prediction
+    n = 120
+    datasets['Sales Prediction'] = pd.DataFrame({
+        'TV_Ad_Budget': np.random.uniform(0, 300, n),
+        'Radio_Ad_Budget': np.random.uniform(0, 50, n),
+        'Social_Media_Budget': np.random.uniform(0, 100, n),
+        'Sales': np.zeros(n)
+    })
+    datasets['Sales Prediction']['Sales'] = (
+        0.05 * datasets['Sales Prediction']['TV_Ad_Budget'] +
+        0.18 * datasets['Sales Prediction']['Radio_Ad_Budget'] +
+        0.12 * datasets['Sales Prediction']['Social_Media_Budget'] +
+        np.random.normal(0, 2, n)
+    )
+    
+    # 4. Employee Salary
+    n = 80
+    datasets['Employee Salary'] = pd.DataFrame({
+        'Years_Experience': np.random.uniform(0, 20, n),
+        'Education_Level': np.random.randint(1, 5, n),
+        'Performance_Rating': np.random.uniform(1, 5, n),
+        'Salary': np.zeros(n)
+    })
+    datasets['Employee Salary']['Salary'] = (
+        30000 +
+        3000 * datasets['Employee Salary']['Years_Experience'] +
+        5000 * datasets['Employee Salary']['Education_Level'] +
+        4000 * datasets['Employee Salary']['Performance_Rating'] +
+        np.random.normal(0, 5000, n)
+    )
+    
+    return datasets
+
 # Sidebar Navigation
 st.sidebar.markdown("## 📊 Navigation")
 page = st.sidebar.radio("Go to:", [
     "🏠 Home",
     "🎓 Beginner's Guide",
     "📊 Regression Basics",
+    "📈 Correlation Analysis",
     "⚠️ Common Pitfalls",
     "🧪 Regression Methods",
-    "📈 Model Evaluation",
-    "🔍 Advanced Concepts",
-    "🎯 Model Builder",
-    "🔬 Model Comparison"
+    "📉 Model Evaluation",
+    "🔍 Advanced Diagnostics",
+    "🎯 Statistical Inference",
+    "🔬 Influential Points",
+    "📐 Mathematical Formulas",
+    "🎓 Step-by-Step Tutorial",
+    "💻 Model Builder",
+    "📊 Model Comparison",
+    "📁 Sample Datasets"
 ])
 
 # Main Content
@@ -305,7 +461,7 @@ if page == "🏠 Home":
     st.markdown('<div class="section-header"><h2>📊 Regression Types Overview</h2></div>', unsafe_allow_html=True)
     
     fig = create_regression_comparison_chart()
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
     
     st.markdown('<div class="section-header"><h2>🚀 Quick Start Guide</h2></div>', unsafe_allow_html=True)
     
@@ -459,7 +615,7 @@ elif page == "📊 Regression Basics":
                                               "X Variable", "Y Variable")
     
     with col2:
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     st.markdown(f"""
     **Current Equation**: Y = {intercept:.2f} + {slope:.2f}X
@@ -475,7 +631,7 @@ elif page == "📊 Regression Basics":
     
     degree = st.slider("Polynomial Degree", 1, 10, 2, 1)
     fig_poly = create_overfitting_demo(degree)
-    st.plotly_chart(fig_poly, use_container_width=True)
+    st.plotly_chart(fig_poly, width='stretch')
     
     if degree == 1:
         st.markdown("**Degree 1**: This is just linear regression - a straight line.")
@@ -545,6 +701,144 @@ elif page == "📊 Regression Basics":
     else:
         st.markdown('<div class="warning-box">❌ <b>Poor fit.</b> This model doesn\'t explain the data well. Try a different approach.</div>', unsafe_allow_html=True)
 
+elif page == "📈 Correlation Analysis":
+    st.markdown('<div class="main-header"><h1>📈 Correlation Analysis</h1></div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="info-box">Correlation measures the strength and direction of the linear relationship between two variables.</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-header"><h2>🔍 Understanding Correlation</h2></div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Pearson Correlation Coefficient (r)**
+        
+        **Range**: -1 to +1
+        
+        **Interpretation**:
+        - **r = +1**: Perfect positive correlation
+        - **r = +0.7 to +1**: Strong positive
+        - **r = +0.3 to +0.7**: Moderate positive
+        - **r = -0.3 to +0.3**: Weak/No correlation
+        - **r = -0.7 to -0.3**: Moderate negative
+        - **r = -1 to -0.7**: Strong negative
+        - **r = -1**: Perfect negative correlation
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Important Notes**:
+        - Correlation ≠ Causation!
+        - Only measures **linear** relationships
+        - Sensitive to outliers
+        - Doesn't capture non-linear patterns
+        
+        **Formula**: r = Σ[(X-X̄)(Y-Ȳ)] / √[Σ(X-X̄)²Σ(Y-Ȳ)²]
+        """)
+    
+    st.markdown("---")
+    st.markdown('<div class="section-header"><h2>🎮 Interactive Correlation Demo</h2></div>', unsafe_allow_html=True)
+    
+    n_points = st.slider("Number of data points", 20, 200, 50)
+    correlation_strength = st.slider("Correlation strength", -1.0, 1.0, 0.7, 0.1)
+    noise_level = st.slider("Noise level", 0.0, 5.0, 1.0, 0.1)
+    
+    np.random.seed(42)
+    x_demo = np.random.normal(0, 1, n_points)
+    y_demo = correlation_strength * x_demo + np.random.normal(0, noise_level, n_points)
+    
+    actual_corr = np.corrcoef(x_demo, y_demo)[0, 1]
+    
+    fig = create_correlation_scatter(x_demo, y_demo, "Correlation Demonstration", "X Variable", "Y Variable")
+    st.plotly_chart(fig, width='stretch')
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Expected Correlation", f"{correlation_strength:.3f}")
+    with col2:
+        st.metric("Actual Correlation", f"{actual_corr:.3f}")
+    with col3:
+        p_value = stats.pearsonr(x_demo, y_demo)[1]
+        st.metric("P-value", f"{p_value:.4f}")
+    
+    if p_value < 0.05:
+        st.markdown('<div class="success-box">✅ <b>Significant correlation</b> (p < 0.05)</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="warning-box">⚠️ <b>Not significant</b> (p >= 0.05)</div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown('<div class="section-header"><h2>📊 Correlation with Your Data</h2></div>', unsafe_allow_html=True)
+    
+    if st.session_state.data is not None:
+        numeric_cols = st.session_state.data.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if len(numeric_cols) >= 2:
+            st.markdown("### Correlation Matrix")
+            corr_matrix = st.session_state.data[numeric_cols].corr()
+            
+            fig = go.Figure(data=go.Heatmap(
+                z=corr_matrix.values,
+                x=corr_matrix.columns,
+                y=corr_matrix.columns,
+                colorscale='RdBu',
+                zmid=0,
+                text=corr_matrix.values.round(3),
+                texttemplate='%{text}',
+                textfont={"size":10},
+                colorbar=dict(title="Correlation")
+            ))
+            fig.update_layout(title="Correlation Heatmap", height=500, template='plotly_white')
+            st.plotly_chart(fig, width='stretch')
+            
+            st.markdown("### Pairwise Correlation Analysis")
+            col1, col2 = st.columns(2)
+            with col1:
+                var1 = st.selectbox("Variable 1", numeric_cols, key='corr_var1')
+            with col2:
+                var2 = st.selectbox("Variable 2", [c for c in numeric_cols if c != var1], key='corr_var2')
+            
+            if var1 and var2:
+                x_data = st.session_state.data[var1].values
+                y_data = st.session_state.data[var2].values
+                
+                mask = ~(np.isnan(x_data) | np.isnan(y_data))
+                x_data = x_data[mask]
+                y_data = y_data[mask]
+                
+                corr, p_val = stats.pearsonr(x_data, y_data)
+                
+                fig = create_correlation_scatter(x_data, y_data, f"{var1} vs {var2}", var1, var2)
+                st.plotly_chart(fig, width='stretch')
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Pearson r", f"{corr:.4f}")
+                with col2:
+                    st.metric("R²", f"{corr**2:.4f}")
+                with col3:
+                    st.metric("P-value", f"{p_val:.4f}")
+                with col4:
+                    if abs(corr) >= 0.7:
+                        st.metric("Strength", "Strong", "✅")
+                    elif abs(corr) >= 0.3:
+                        st.metric("Strength", "Moderate", "⚠️")
+                    else:
+                        st.metric("Strength", "Weak", "❌")
+                
+                st.markdown(f"""
+                **Interpretation**:
+                - The correlation coefficient is **{corr:.4f}**
+                - This indicates a **{"positive" if corr > 0 else "negative"}** relationship
+                - The relationship is **{"strong" if abs(corr) >= 0.7 else "moderate" if abs(corr) >= 0.3 else "weak"}**
+                - **{corr**2*100:.1f}%** of variance in {var2} is explained by {var1}
+                - The correlation is **{"statistically significant" if p_val < 0.05 else "not statistically significant"}** (α = 0.05)
+                """)
+        else:
+            st.warning("Need at least 2 numeric columns for correlation analysis!")
+    else:
+        st.info("📁 Upload data in Model Builder to perform correlation analysis!")
+
 elif page == "⚠️ Common Pitfalls":
     st.markdown('<div class="main-header"><h1>⚠️ Common Pitfalls & Mistakes</h1></div>', unsafe_allow_html=True)
     
@@ -558,7 +852,7 @@ elif page == "⚠️ Common Pitfalls":
     
     degree_demo = st.slider("See Overfitting in Action - Polynomial Degree", 1, 15, 1)
     fig_overfit = create_overfitting_demo(degree_demo)
-    st.plotly_chart(fig_overfit, use_container_width=True)
+    st.plotly_chart(fig_overfit, width='stretch')
     
     st.markdown("---")
     st.markdown("### 🚫 Mistake 2: Multicollinearity")
@@ -619,7 +913,7 @@ elif page == "⚠️ Common Pitfalls":
         ]
     }
     
-    st.dataframe(pd.DataFrame(assumptions_data), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(assumptions_data), hide_index=True, width='stretch')
     
     st.markdown("---")
     st.markdown("### 🚫 Mistake 4: Extrapolation")
@@ -678,7 +972,7 @@ elif page == "⚠️ Common Pitfalls":
         ]
     }
     
-    st.dataframe(pd.DataFrame(checklist), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(checklist), hide_index=True, width='stretch')
 
 elif page == "🧪 Regression Methods":
     st.markdown('<div class="main-header"><h1>🧪 Regression Methods Reference</h1></div>', unsafe_allow_html=True)
@@ -704,7 +998,7 @@ elif page == "🧪 Regression Methods":
         ]
     }
     
-    st.dataframe(pd.DataFrame(methods_data), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(methods_data), hide_index=True, width='stretch')
     
     st.markdown("---")
     
@@ -1011,8 +1305,8 @@ important_features = X.columns[model.coef_ != 0]
 print("Selected features:", important_features)
         """, language='python')
 
-elif page == "📈 Model Evaluation":
-    st.markdown('<div class="main-header"><h1>📈 Model Evaluation & Metrics</h1></div>', unsafe_allow_html=True)
+elif page == "📉 Model Evaluation":
+    st.markdown('<div class="main-header"><h1>📉 Model Evaluation & Metrics</h1></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="section-header"><h2>📊 Regression Metrics</h2></div>', unsafe_allow_html=True)
     
@@ -1036,7 +1330,7 @@ elif page == "📈 Model Evaluation":
         ]
     }
     
-    st.dataframe(pd.DataFrame(metrics_data), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(metrics_data), hide_index=True, width='stretch')
     
     st.markdown("---")
     st.markdown("### 📊 Interactive Metrics Calculator")
@@ -1102,7 +1396,7 @@ elif page == "📈 Model Evaluation":
             "Actual vs Predicted",
             "Actual Values", "Predicted Values"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     
     st.markdown("---")
     st.markdown('<div class="section-header"><h2>📉 Diagnostic Plots</h2></div>', unsafe_allow_html=True)
@@ -1128,7 +1422,7 @@ elif page == "📈 Model Evaluation":
         if 'metrics_calculated' in st.session_state and st.session_state.metrics_calculated:
             residuals = st.session_state.y_actual - st.session_state.y_pred
             fig_resid = create_residual_plot(st.session_state.y_pred, residuals)
-            st.plotly_chart(fig_resid, use_container_width=True)
+            st.plotly_chart(fig_resid, width='stretch')
     
     st.markdown("---")
     st.markdown("### 2. Q-Q Plot")
@@ -1139,7 +1433,7 @@ elif page == "📈 Model Evaluation":
         if 'metrics_calculated' in st.session_state and st.session_state.metrics_calculated:
             residuals = st.session_state.y_actual - st.session_state.y_pred
             fig_qq = create_qq_plot(residuals)
-            st.plotly_chart(fig_qq, use_container_width=True)
+            st.plotly_chart(fig_qq, width='stretch')
     
     with col2:
         st.markdown("""
@@ -1180,14 +1474,14 @@ elif page == "📈 Model Evaluation":
         'Good Value': ['> 0.8', '> 0.7', '> 0.7', '> 0.7', '> 0.8']
     }
     
-    st.dataframe(pd.DataFrame(log_metrics_data), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(log_metrics_data), hide_index=True, width='stretch')
     
     st.markdown("""
     **TP** = True Positives, **TN** = True Negatives, **FP** = False Positives, **FN** = False Negatives
     """)
 
-elif page == "🔍 Advanced Concepts":
-    st.markdown('<div class="main-header"><h1>🔍 Advanced Concepts & Assumption Testing</h1></div>', unsafe_allow_html=True)
+elif page == "🔍 Advanced Diagnostics":
+    st.markdown('<div class="main-header"><h1>🔍 Advanced Diagnostics & Assumption Testing</h1></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="section-header"><h2>✅ Regression Assumptions</h2></div>', unsafe_allow_html=True)
     
@@ -1218,7 +1512,7 @@ elif page == "🔍 Advanced Concepts":
         ]
     }
     
-    st.dataframe(pd.DataFrame(assumptions_detail), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(assumptions_detail), hide_index=True, width='stretch')
     
     st.markdown("---")
     st.markdown('<div class="section-header"><h2>🔢 Variance Inflation Factor (VIF)</h2></div>', unsafe_allow_html=True)
@@ -1247,7 +1541,7 @@ elif page == "🔍 Advanced Concepts":
             'VIF': [2.3, 8.5, 1.8, 12.4]
         })
         fig_vif = create_vif_bar_chart(vif_example)
-        st.plotly_chart(fig_vif, use_container_width=True)
+        st.plotly_chart(fig_vif, width='stretch')
     
     st.markdown("""
     In this example:
@@ -1391,7 +1685,7 @@ else:
         'Difficulty': ['Medium', 'Medium', 'High', 'High', 'Medium']
     }
     
-    st.dataframe(pd.DataFrame(advanced_techniques), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(advanced_techniques), hide_index=True, width='stretch')
     
     with st.expander("🔍 Learn More: Cross-Validation"):
         st.markdown("""
@@ -1415,8 +1709,270 @@ else:
         ```
         """)
 
-elif page == "🎯 Model Builder":
-    st.markdown('<div class="main-header"><h1>🎯 Interactive Model Builder</h1></div>', unsafe_allow_html=True)
+elif page == "🎯 Statistical Inference":
+    st.markdown('<div class="main-header"><h1>🎯 Statistical Inference</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-box">Use hypothesis testing and confidence intervals to make statistical inferences from your regression models.</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-header"><h2>📊 Confidence Interval Calculator</h2></div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        coef_estimate = st.number_input("Coefficient Estimate (β̂)", value=2.5)
+        std_error = st.number_input("Standard Error", value=0.5, min_value=0.01)
+        n_obs = st.number_input("Sample Size (n)", value=100, min_value=3)
+    with col2:
+        confidence_level = st.slider("Confidence Level", 0.90, 0.99, 0.95, 0.01)
+    
+    df = n_obs - 2
+    alpha = 1 - confidence_level
+    t_critical = stats.t.ppf(1 - alpha/2, df)
+    margin_error = t_critical * std_error
+    ci_lower = coef_estimate - margin_error
+    ci_upper = coef_estimate + margin_error
+    t_stat = coef_estimate / std_error
+    p_value = 2 * (1 - stats.t.cdf(abs(t_stat), df))
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("T-statistic", f"{t_stat:.4f}")
+    with col2:
+        st.metric("P-value", f"{p_value:.4f}")
+    with col3:
+        st.metric("Significance", "Yes ✅" if p_value < 0.05 else "No ❌")
+    
+    st.markdown(f"""
+    **{confidence_level*100:.0f}% Confidence Interval**: [{ci_lower:.4f}, {ci_upper:.4f}]
+    
+    **Interpretation**: We are {confidence_level*100:.0f}% confident the true coefficient is between {ci_lower:.4f} and {ci_upper:.4f}
+    """)
+    
+    if p_value < 0.05:
+        st.markdown('<div class="success-box">✅ <b>Significant!</b> The coefficient is statistically significant (p < 0.05)</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="warning-box">⚠️ <b>Not significant</b> (p >= 0.05)</div>', unsafe_allow_html=True)
+
+elif page == "🔬 Influential Points":
+    st.markdown('<div class="main-header"><h1>🔬 Influential Points & Outliers</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-box">Identify observations that disproportionately affect your regression results.</div>', unsafe_allow_html=True)
+    
+    st.markdown("### Detection Methods")
+    detection_data = {
+        'Method': ["Cook's Distance", 'Leverage', 'Standardized Residuals'],
+        'Detects': ['Influential points', 'Unusual X values', 'Unusual Y values'],
+        'Threshold': ['> 1', '> 2p/n', '> 2 or < -2'],
+        'Action': ['Investigate', 'Check data', 'Check for errors']
+    }
+    st.dataframe(pd.DataFrame(detection_data), hide_index=True, width='stretch')
+    
+    if st.session_state.data is not None and 'current_model' in st.session_state:
+        try:
+            import statsmodels.api as sm
+            from statsmodels.stats.outliers_influence import OLSInfluence
+            
+            results = st.session_state.current_model
+            X = results['X_train']
+            y = results['y_train']
+            
+            X_with_const = sm.add_constant(X)
+            ols_model = sm.OLS(y, X_with_const).fit()
+            influence = OLSInfluence(ols_model)
+            
+            cooks_d = influence.cooks_distance[0]
+            threshold = 1.0
+            
+            fig = create_cooks_distance_plot(cooks_d, threshold)
+            st.plotly_chart(fig, width='stretch')
+            
+            n_influential = np.sum(cooks_d > threshold)
+            if n_influential > 0:
+                st.markdown(f'<div class="warning-box">⚠️ Found <b>{n_influential}</b> influential point(s)</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="success-box">✅ No influential points detected</div>', unsafe_allow_html=True)
+        except:
+            st.info("Build a model in Model Builder to see diagnostics!")
+    else:
+        st.info("📁 Build a model in Model Builder first!")
+
+elif page == "📐 Mathematical Formulas":
+    st.markdown('<div class="main-header"><h1>📐 Mathematical Formulas</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-box">Complete reference for all regression formulas and equations.</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-header"><h2>📊 Simple Linear Regression</h2></div>', unsafe_allow_html=True)
+    
+    st.markdown("### 1. Regression Line")
+    st.latex(r"\hat{Y} = \beta_0 + \beta_1 X")
+    st.markdown("Where Ŷ is the predicted value, β₀ is the intercept, β₁ is the slope, and X is the predictor variable.")
+    
+    st.markdown("---")
+    st.markdown("### 2. Slope (β₁)")
+    st.latex(r"\beta_1 = \frac{\sum_{i=1}^{n}(X_i - \bar{X})(Y_i - \bar{Y})}{\sum_{i=1}^{n}(X_i - \bar{X})^2}")
+    st.markdown("The slope represents the change in Y for a one-unit change in X.")
+    
+    st.markdown("---")
+    st.markdown("### 3. Intercept (β₀)")
+    st.latex(r"\beta_0 = \bar{Y} - \beta_1 \bar{X}")
+    st.markdown("The intercept is the predicted value of Y when X = 0.")
+    
+    st.markdown("---")
+    st.markdown("### 4. Correlation Coefficient (r)")
+    st.latex(r"r = \frac{\sum_{i=1}^{n}(X_i - \bar{X})(Y_i - \bar{Y})}{\sqrt{\sum_{i=1}^{n}(X_i - \bar{X})^2 \sum_{i=1}^{n}(Y_i - \bar{Y})^2}}")
+    st.markdown("Pearson correlation coefficient measures the strength and direction of the linear relationship between X and Y.")
+    
+    st.markdown('<div class="section-header"><h2>📊 Model Evaluation Metrics</h2></div>', unsafe_allow_html=True)
+    
+    st.markdown("### 5. R² (Coefficient of Determination)")
+    st.latex(r"R^2 = 1 - \frac{SSE}{SST} = 1 - \frac{\sum_{i=1}^{n}(Y_i - \hat{Y}_i)^2}{\sum_{i=1}^{n}(Y_i - \bar{Y})^2}")
+    st.markdown("Proportion of variance in Y explained by X. Range: 0 to 1, higher is better.")
+    
+    st.markdown("---")
+    st.markdown("### 6. Adjusted R²")
+    st.latex(r"R_{adj}^2 = 1 - \frac{(1-R^2)(n-1)}{n-p-1}")
+    st.markdown("Where n is sample size and p is number of predictors. Adjusts for the number of variables.")
+    
+    st.markdown("---")
+    st.markdown("### 7. Mean Squared Error (MSE)")
+    st.latex(r"MSE = \frac{\sum_{i=1}^{n}(Y_i - \hat{Y}_i)^2}{n-p-1}")
+    st.markdown("Average squared difference between observed and predicted values.")
+    
+    st.markdown("---")
+    st.markdown("### 8. Root Mean Squared Error (RMSE)")
+    st.latex(r"RMSE = \sqrt{MSE} = \sqrt{\frac{\sum_{i=1}^{n}(Y_i - \hat{Y}_i)^2}{n-p-1}}")
+    st.markdown("RMSE is in the same units as Y, making it easier to interpret.")
+    
+    st.markdown("---")
+    st.markdown("### 9. Mean Absolute Error (MAE)")
+    st.latex(r"MAE = \frac{\sum_{i=1}^{n}|Y_i - \hat{Y}_i|}{n}")
+    st.markdown("Average absolute difference, less sensitive to outliers than MSE.")
+    
+    st.markdown('<div class="section-header"><h2>📊 Statistical Inference Formulas</h2></div>', unsafe_allow_html=True)
+    
+    st.markdown("### 10. T-Statistic (for coefficients)")
+    st.latex(r"t = \frac{\hat{\beta}}{SE(\hat{\beta})}")
+    st.markdown("Tests if a coefficient is significantly different from zero. Compare to t-distribution with n-p-1 degrees of freedom.")
+    
+    st.markdown("---")
+    st.markdown("### 11. F-Statistic (overall model significance)")
+    st.latex(r"F = \frac{SSR/p}{SSE/(n-p-1)} = \frac{R^2/p}{(1-R^2)/(n-p-1)}")
+    st.markdown("Tests if at least one predictor is significant. Where SSR = Sum of Squares Regression, SSE = Sum of Squares Error.")
+    
+    st.markdown("---")
+    st.markdown("### 12. Confidence Interval for Coefficients")
+    st.latex(r"\hat{\beta} \pm t_{\alpha/2, df} \times SE(\hat{\beta})")
+    st.markdown("Where df = n-p-1 and t is from the t-distribution. Typically use 95% confidence (α=0.05).")
+    
+    st.markdown("---")
+    st.markdown("### 13. Variance Inflation Factor (VIF)")
+    st.latex(r"VIF_j = \frac{1}{1-R_j^2}")
+    st.markdown("Where R²ⱼ is from regressing Xⱼ on all other predictors. VIF > 10 indicates severe multicollinearity.")
+    
+    st.markdown("---")
+    st.markdown("### 14. Durbin-Watson Statistic")
+    st.latex(r"DW = \frac{\sum_{i=2}^{n}(e_i - e_{i-1})^2}{\sum_{i=1}^{n}e_i^2}")
+    st.markdown("Tests for autocorrelation in residuals. DW ≈ 2 indicates no autocorrelation. Range: 0 to 4.")
+    
+    st.markdown('<div class="section-header"><h2>📊 Multiple Regression (Matrix Form)</h2></div>', unsafe_allow_html=True)
+    
+    st.markdown("### 15. Multiple Regression in Matrix Form")
+    st.latex(r"\mathbf{Y} = \mathbf{X}\boldsymbol{\beta} + \boldsymbol{\epsilon}")
+    st.markdown("Where **Y** is n×1 vector of responses, **X** is n×(p+1) design matrix, **β** is (p+1)×1 coefficient vector.")
+    
+    st.markdown("---")
+    st.markdown("### 16. Least Squares Solution")
+    st.latex(r"\hat{\boldsymbol{\beta}} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{Y}")
+    st.markdown("The ordinary least squares (OLS) estimator that minimizes the sum of squared residuals.")
+    
+    st.markdown("---")
+    st.markdown("### 17. Standard Errors of Coefficients")
+    st.latex(r"SE(\hat{\boldsymbol{\beta}}) = \sqrt{MSE \times \text{diag}[(\mathbf{X}^T\mathbf{X})^{-1}]}")
+    st.markdown("Used to construct confidence intervals and t-statistics for each coefficient.")
+    
+    st.markdown('<div class="section-header"><h2>📊 Prediction</h2></div>', unsafe_allow_html=True)
+    
+    st.markdown("### 18. Prediction Interval")
+    st.latex(r"\hat{Y}_0 \pm t_{\alpha/2, df} \times \sqrt{MSE\left(1 + \frac{1}{n} + \frac{(X_0 - \bar{X})^2}{\sum_{i=1}^{n}(X_i - \bar{X})^2}\right)}")
+    st.markdown("For a single new observation. Wider than confidence interval because it accounts for individual variation.")
+    
+    st.markdown("---")
+    st.markdown("### 19. Confidence Interval for Mean Response")
+    st.latex(r"\hat{Y}_0 \pm t_{\alpha/2, df} \times \sqrt{MSE\left(\frac{1}{n} + \frac{(X_0 - \bar{X})^2}{\sum_{i=1}^{n}(X_i - \bar{X})^2}\right)}")
+    st.markdown("For the average of all Y values at X₀. Narrower than prediction interval.")
+    
+    st.markdown("---")
+    st.markdown('<div class="success-box"><b>💡 Tip:</b> Use these formulas as a quick reference when interpreting your regression results!</div>', unsafe_allow_html=True)
+
+elif page == "🎓 Step-by-Step Tutorial":
+    st.markdown('<div class="main-header"><h1>🎓 Step-by-Step Regression Tutorial</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-box">Follow this comprehensive workflow for complete regression analysis.</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-header"><h2>Phase 1: Data Preparation</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Load your data (CSV file)
+    - ✅ Check data types and dimensions
+    - ✅ Handle missing values
+    - ✅ Identify and remove duplicates
+    - ✅ Check for outliers visually
+    """)
+    
+    st.markdown('<div class="section-header"><h2>Phase 2: Exploratory Analysis</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Calculate summary statistics
+    - ✅ Create correlation matrix
+    - ✅ Visualize relationships (scatter plots)
+    - ✅ Identify potential predictors
+    - ✅ Check for multicollinearity (VIF)
+    """)
+    
+    st.markdown('<div class="section-header"><h2>Phase 3: Model Building</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Choose regression type (linear, polynomial, etc.)
+    - ✅ Select dependent variable (Y)
+    - ✅ Select independent variables (X)
+    - ✅ Split data (train/test)
+    - ✅ Fit initial model
+    """)
+    
+    st.markdown('<div class="section-header"><h2>Phase 4: Model Evaluation</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Check R² and Adjusted R²
+    - ✅ Examine coefficients and signs
+    - ✅ Check p-values (< 0.05)
+    - ✅ Calculate confidence intervals
+    - ✅ Assess overall F-test
+    """)
+    
+    st.markdown('<div class="section-header"><h2>Phase 5: Diagnostic Testing</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Test linearity (residual plot)
+    - ✅ Test normality (Q-Q plot, Shapiro-Wilk)
+    - ✅ Test homoscedasticity (residual vs fitted)
+    - ✅ Test independence (Durbin-Watson)
+    - ✅ Check multicollinearity (VIF < 10)
+    - ✅ Identify influential points (Cook's Distance)
+    """)
+    
+    st.markdown('<div class="section-header"><h2>Phase 6: Model Refinement</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Remove insignificant variables
+    - ✅ Add interaction terms if needed
+    - ✅ Try polynomial terms
+    - ✅ Apply regularization (Ridge/Lasso)
+    - ✅ Refit and compare models
+    """)
+    
+    st.markdown('<div class="section-header"><h2>Phase 7: Final Validation</h2></div>', unsafe_allow_html=True)
+    st.markdown("""
+    - ✅ Validate on test set
+    - ✅ Compare multiple models
+    - ✅ Select best model (highest R², lowest RMSE)
+    - ✅ Interpret results in context
+    - ✅ Document findings
+    """)
+    
+    st.markdown("---")
+    st.markdown('<div class="success-box"><b>💡 Pro Tip:</b> Use the <b>Sample Datasets</b> section to practice this workflow with realistic data!</div>', unsafe_allow_html=True)
+
+elif page == "💻 Model Builder":
+    st.markdown('<div class="main-header"><h1>💻 Interactive Model Builder</h1></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="info-box">Upload your data, select variables, choose a model type, and get instant results with diagnostics!</div>', unsafe_allow_html=True)
     
@@ -1458,7 +2014,7 @@ elif page == "🎯 Model Builder":
         tab1, tab2, tab3 = st.tabs(["📋 Data Preview", "🔍 Data Info", "📊 Distributions"])
         
         with tab1:
-            st.dataframe(st.session_state.data.head(10), use_container_width=True)
+            st.dataframe(st.session_state.data.head(10), width='stretch')
         
         with tab2:
             col1, col2, col3 = st.columns(3)
@@ -1475,19 +2031,19 @@ elif page == "🎯 Model Builder":
                 'Type': st.session_state.data.dtypes,
                 'Missing': st.session_state.data.isnull().sum(),
                 'Unique': st.session_state.data.nunique()
-            }), hide_index=True, use_container_width=True)
+            }), hide_index=True, width='stretch')
         
         with tab3:
             numeric_cols = st.session_state.data.select_dtypes(include=[np.number]).columns.tolist()
             if len(numeric_cols) > 0:
                 col_to_plot = st.selectbox("Select column to visualize", numeric_cols)
                 fig = create_distribution_plot(st.session_state.data, col_to_plot)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             
             if len(numeric_cols) >= 2:
                 st.markdown("**Correlation Heatmap**")
                 fig_corr = create_correlation_heatmap(st.session_state.data)
-                st.plotly_chart(fig_corr, use_container_width=True)
+                st.plotly_chart(fig_corr, width='stretch')
         
         # Data Cleaning Options
         with st.expander("🧹 Data Cleaning Options"):
@@ -1681,7 +2237,7 @@ elif page == "🎯 Model Builder":
                     col1, col2 = st.columns([1, 2])
                     
                     with col1:
-                        st.dataframe(coef_data[['Feature', 'Coefficient']], hide_index=True, use_container_width=True)
+                        st.dataframe(coef_data[['Feature', 'Coefficient']], hide_index=True, width='stretch')
                         st.markdown(f"**Intercept**: {results['model'].intercept_:.4f}")
                     
                     with col2:
@@ -1693,7 +2249,7 @@ elif page == "🎯 Model Builder":
                         ))
                         fig.update_layout(title="Feature Importance", xaxis_title="Coefficient Value",
                                         template='plotly_white', height=300)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width='stretch')
                 
                 # Visualizations
                 st.markdown("### 📊 Diagnostic Plots")
@@ -1719,12 +2275,12 @@ elif page == "🎯 Model Builder":
                             "Actual Values",
                             "Predicted Values"
                         )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
                 
                 with tab2:
                     residuals = results['y_test'] - results['y_test_pred']
                     fig = create_residual_plot(results['y_test_pred'], residuals)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
                     
                     # Check for patterns
                     st.markdown("**Residual Analysis:**")
@@ -1736,7 +2292,7 @@ elif page == "🎯 Model Builder":
                 with tab3:
                     residuals = results['y_test'] - results['y_test_pred']
                     fig = create_qq_plot(residuals)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
                     
                     # Normality test
                     from scipy.stats import shapiro
@@ -1761,8 +2317,8 @@ elif page == "🎯 Model Builder":
                     }
                     st.success(f"✅ Model '{model_name}' saved for comparison!")
 
-elif page == "🔬 Model Comparison":
-    st.markdown('<div class="main-header"><h1>🔬 Model Comparison</h1></div>', unsafe_allow_html=True)
+elif page == "📊 Model Comparison":
+    st.markdown('<div class="main-header"><h1>📊 Model Comparison</h1></div>', unsafe_allow_html=True)
     
     if len(st.session_state.model_results) == 0:
         st.markdown('<div class="info-box">No models saved yet! Go to <b>Model Builder</b> to create and save models for comparison.</div>', unsafe_allow_html=True)
@@ -1784,7 +2340,7 @@ elif page == "🔬 Model Comparison":
         
         st.dataframe(comparison_df.style.highlight_max(subset=['R²', 'Adjusted R²'], color='lightgreen')
                                       .highlight_min(subset=['RMSE', 'MAE'], color='lightgreen'),
-                    hide_index=True, use_container_width=True)
+                    hide_index=True, width='stretch')
         
         # Best Model
         best_model_name = comparison_df.loc[comparison_df['R²'].idxmax(), 'Model']
@@ -1795,7 +2351,7 @@ elif page == "🔬 Model Comparison":
         
         if len(st.session_state.model_results) >= 2:
             fig = create_metrics_comparison_chart(st.session_state.model_results)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         
         # Detailed Comparison
         col1, col2 = st.columns(2)
@@ -1808,7 +2364,7 @@ elif page == "🔬 Model Comparison":
                 marker_color='#667eea'
             ))
             fig_r2.update_layout(template='plotly_white', height=300)
-            st.plotly_chart(fig_r2, use_container_width=True)
+            st.plotly_chart(fig_r2, width='stretch')
         
         with col2:
             st.markdown("### RMSE Scores")
@@ -1818,7 +2374,7 @@ elif page == "🔬 Model Comparison":
                 marker_color='#f5576c'
             ))
             fig_rmse.update_layout(template='plotly_white', height=300)
-            st.plotly_chart(fig_rmse, use_container_width=True)
+            st.plotly_chart(fig_rmse, width='stretch')
         
         # Clear Models
         st.markdown("---")
@@ -1826,6 +2382,122 @@ elif page == "🔬 Model Comparison":
             st.session_state.model_results = {}
             st.success("All models cleared!")
             st.rerun()
+
+elif page == "📁 Sample Datasets":
+    st.markdown('<div class="main-header"><h1>📁 Sample Datasets</h1></div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="info-box">Practice with pre-loaded datasets designed for learning regression analysis. Each dataset is carefully crafted with realistic relationships.</div>', unsafe_allow_html=True)
+    
+    datasets = generate_sample_datasets()
+    
+    dataset_descriptions = {
+        'House Prices': {
+            'icon': '🏠',
+            'observations': 100,
+            'purpose': 'Learn multiple regression basics',
+            'difficulty': 'Beginner',
+            'description': 'Predict house prices based on size, bedrooms, age, and distance to city.',
+            'variables': 'Size_SqFt, Bedrooms, Age_Years, Distance_to_City, Price',
+            'key_concepts': 'Multiple predictors, variable interpretation, practical business case'
+        },
+        'Student Performance': {
+            'icon': '🎓',
+            'observations': 150,
+            'purpose': 'Educational data analysis and prediction',
+            'difficulty': 'Beginner',
+            'description': 'Predict student test scores from study habits and attendance.',
+            'variables': 'Study_Hours, Sleep_Hours, Previous_Score, Attendance_Pct, Test_Score',
+            'key_concepts': 'Academic applications, variable selection, performance factors'
+        },
+        'Sales Prediction': {
+            'icon': '📺',
+            'observations': 120,
+            'purpose': 'Marketing analytics and ROI analysis',
+            'difficulty': 'Intermediate',
+            'description': 'Predict sales based on advertising budgets across different channels.',
+            'variables': 'TV_Ad_Budget, Radio_Ad_Budget, Social_Media_Budget, Sales',
+            'key_concepts': 'Marketing effectiveness, budget allocation, comparative analysis'
+        },
+        'Employee Salary': {
+            'icon': '💼',
+            'observations': 80,
+            'purpose': 'HR analytics and compensation analysis',
+            'difficulty': 'Intermediate',
+            'description': 'Predict employee salaries based on experience, education, and performance.',
+            'variables': 'Years_Experience, Education_Level, Performance_Rating, Salary',
+            'key_concepts': 'HR applications, mixed variable types, business decisions'
+        }
+    }
+    
+    st.markdown('<div class="section-header"><h2>📚 Available Datasets</h2></div>', unsafe_allow_html=True)
+    
+    dataset_choice = st.selectbox("Select a dataset to load", [''] + list(datasets.keys()))
+    
+    if dataset_choice:
+        desc = dataset_descriptions[dataset_choice]
+        
+        col1, col2, col3 = st.columns([1, 2, 2])
+        with col1:
+            st.markdown(f"<div style='font-size: 60px; text-align: center;'>{desc['icon']}</div>", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"**Observations**: {desc['observations']}")
+            st.markdown(f"**Difficulty**: {desc['difficulty']}")
+            st.markdown(f"**Purpose**: {desc['purpose']}")
+        with col3:
+            if st.button(f"📥 Load {dataset_choice}", type="primary"):
+                st.session_state.data = datasets[dataset_choice]
+                st.success(f"✅ {dataset_choice} loaded successfully!")
+                st.balloons()
+                st.rerun()
+        
+        st.markdown(f"<div class='info-box'><b>Description:</b> {desc['description']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='example-box'><b>Variables:</b> {desc['variables']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='success-box'><b>Key Concepts:</b> {desc['key_concepts']}</div>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.markdown("### 👀 Dataset Preview")
+        st.dataframe(datasets[dataset_choice].head(10), width='stretch')
+        
+        st.markdown("### 📊 Dataset Statistics")
+        st.dataframe(datasets[dataset_choice].describe(), width='stretch')
+        
+        st.markdown("### 🔍 Suggested Analysis Steps")
+        steps_dict = {
+            'House Prices': [
+                "1. Explore correlation between Size_SqFt and Price",
+                "2. Build multiple regression with all predictors",
+                "3. Check VIF for multicollinearity",
+                "4. Interpret coefficient signs (positive/negative)",
+                "5. Compare models with different feature combinations"
+            ],
+            'Student Performance': [
+                "1. Analyze correlation between Study_Hours and Test_Score",
+                "2. Build model with all study factors",
+                "3. Test if Sleep_Hours has significant effect",
+                "4. Check for influential observations",
+                "5. Validate assumptions (normality, homoscedasticity)"
+            ],
+            'Sales Prediction': [
+                "1. Compare effectiveness of different ad channels",
+                "2. Build model to predict sales",
+                "3. Determine ROI for each advertising type",
+                "4. Test for interaction effects",
+                "5. Optimize budget allocation"
+            ],
+            'Employee Salary': [
+                "1. Explore relationship between Experience and Salary",
+                "2. Build comprehensive salary prediction model",
+                "3. Quantify value of education vs performance",
+                "4. Check for non-linear relationships",
+                "5. Compare Ridge/Lasso for regularization"
+            ]
+        }
+        
+        for step in steps_dict[dataset_choice]:
+            st.markdown(f"✅ {step}")
+        
+        st.markdown("---")
+        st.markdown('<div class="warning-box"><b>💡 Pro Tip:</b> After loading a dataset, go to <b>Model Builder</b> section to start building regression models!</div>', unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
